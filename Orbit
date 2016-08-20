@@ -1,0 +1,171 @@
+
+class Orbit {
+
+  //-------------------------------------------------------------------- Camera Variables
+
+  String[] viewPoint = new String[7];
+  String viewPointFile = "viewPoint.txt"; 
+
+  float[] orbitParams = new float[7];
+
+  /*
+   orbitParams[0] = alpha1
+   orbitParams[1] = alpha2
+   orbitParams[2] = distance
+   orbitParams[3] = translate1
+   orbitParams[4] = translate2
+   orbitParams[5] = translate3
+   orbitParams[6] = fov
+   */
+
+  float alpha1_;
+  float alpha2_;
+  int mouse_x, mouse_y;
+  boolean keyRelease = false;
+  boolean retPers = true;
+  int numRot = 0;
+
+
+
+
+  Orbit() {
+
+  }
+
+
+  //-------------------------------------------------------------------- Mouse Wheel Listener
+
+  void mouseWheel() {
+    addMouseWheelListener(new java.awt.event.MouseWheelListener() { 
+      public void mouseWheelMoved(java.awt.event.MouseWheelEvent evt) { 
+        mouseWheel(evt.getWheelRotation());
+      }
+    }
+    );
+  } 
+
+  //----------------------------------------------------------------------- PushOrbit and PopOrbit
+
+  void pushOrbit() {
+
+    lights();
+    camera(width/2.0, height/2.0, orbitParams[2] *(height/2.0) / tan(PI*60.0 / 360.0), width/2.0,  height/2.0, -1 * (height/2.0) / tan(PI*60.0 / 360.0), 0, 1, 0);
+    perspective(orbitParams[6], float(width)/float(height), orbitParams[2] *((height/2.0) / tan(PI*60.0/360.0))/10.0, ((height/2.0) / tan(PI*60.0/360.0))*10.0);
+
+    alpha2_ = orbitParams[1] + sin(frameCount/130.0)*0.00008;
+    alpha1_ = orbitParams[0] + sin(frameCount/123.0)*0.00008;
+
+    translate(width/2,height/2);
+    //scale(2.5);
+    rotateX(alpha2_);
+    rotateZ(alpha1_);
+    translate(orbitParams[3],orbitParams[4],orbitParams[5]);
+    //scale(0.5);
+
+    if (retPers) {
+      retrievePerspectiveSettings();
+    }
+  }
+
+  void popOrbit() {
+    //popMatrix();
+    camera();
+    perspective();
+    lights();
+  }
+
+  //----------------------------------------------------------------------- File Operations
+
+    void savePerspectiveSettings() {
+
+    for(int i=0;i<orbitParams.length;i++) {
+
+      viewPoint[i] = String.valueOf(orbitParams[i]);
+    }
+
+    saveStrings(dataPath(viewPointFile), viewPoint);
+  }
+
+  void retrievePerspectiveSettings() {
+
+    File f = new File(dataPath(viewPointFile)); 
+    String lines[] = loadStrings(dataPath(viewPointFile));
+
+    if (f.exists()) 
+    { 
+      if (numRot < 8) {
+
+        for(int i=0;i<orbitParams.length;i++) {
+
+          orbitParams[i] = float(lines[i])/ 2 + orbitParams[i] / 2;
+          numRot++;
+        }
+      }
+      else {
+        for(int i=0;i<orbitParams.length;i++) {
+          orbitParams[i] = float(lines[i]);
+        }
+
+        retPers = false;
+        numRot = 0;
+      }
+    }
+  }
+
+  //----------------------------------------------------------------------- Keys and Mouse
+
+  void keyPressed()
+  {
+
+    if (key == '=') {
+      save(dataPath("001.png"));
+    }
+
+    if (key == 'p') {
+      myOrbit.savePerspectiveSettings();
+    }
+
+    if (key == 'o') {
+      myOrbit.retPers = true;
+    }
+  }
+
+  void mousePressed ()
+  {  
+    mouse_x = mouseX;
+    mouse_y = mouseY;
+  }
+
+  void mouseDragged()
+  {
+    if (mouseButton == LEFT)
+    {
+      orbitParams[0] +=(mouse_x - mouseX)/100.0;    
+      orbitParams[1] +=(mouse_y - mouseY)/100.0;
+    }
+
+    if (mouseButton == RIGHT)
+    {
+      float msx = (mouse_x - mouseX);
+      float msy = (mouse_y - mouseY)*cos(orbitParams[1]);
+      float msz = (mouse_y - mouseY);
+      orbitParams[3] -=(  cos(orbitParams[0])*msx + sin(orbitParams[0])*msy)/5;    
+      orbitParams[4] -=( -sin(orbitParams[0])*msx + cos(orbitParams[0])*msy)/5; 
+      orbitParams[5] +=( sin(orbitParams[1])*msz)/5;
+    }
+
+    if (mouseButton == CENTER)
+    {
+      orbitParams[6] = orbitParams[6] * (mouseY - mouse_y + width) / width ;
+    };
+
+    mouse_x=mouseX;
+    mouse_y=mouseY;
+  }
+
+  void mouseWheel(int delta) {
+
+    orbitParams[2] = orbitParams[2] * (delta + 20) / 20 ;  
+
+  }
+}
