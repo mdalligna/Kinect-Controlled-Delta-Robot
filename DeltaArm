@@ -1,0 +1,99 @@
+class DeltaArm {
+
+  int id;
+  PVector targetPos = new PVector();
+  
+  float servoAngle;
+  float armAngle;
+  float alpha, beta, rho;
+  
+  PVector hipVec, kneeVec, ankleVec;
+
+  float hip, ankle, base, effector, robotH;
+  float c;             // base to goal distance, a2: projected ankle length
+
+  PVector ab = new PVector(0,0,0);
+
+  float pangle;            // parallelogram joint angle
+  float ankleAngle;        // for transforms
+
+  public DeltaArm(int id, float armAngle, float hip, float ankle, float base, float effector, float robotH) {
+    this.robotH = robotH;
+    this.id = id;
+    this.armAngle = armAngle;
+    this.base = base;
+    this.effector = effector;
+    this.hip = hip;
+    this.ankle = ankle;
+  }
+
+  void moveTo(PVector thisPos) {
+    
+    PVector newPos = new PVector();
+    newPos.set(thisPos);
+    targetPos.set(thisPos);
+    newPos.z =robotH-newPos.z;
+
+    newPos = rotateVec(newPos,0,0,-armAngle);
+    newPos.x += effector;
+
+    // find projection of a on the z=0 plane, squared
+    float ankle2 = ankle*ankle - newPos.y*newPos.y;
+
+    // calculate c with respect to base offset
+    //c = sqrt((targetPos.x+effector-base)*(targetPos.x+effector-base) + targetPos.z*targetPos.z);
+    c = dist(newPos.x,0,newPos.z, base,0,0);
+    alpha = acos((-ankle2+hip*hip+c*c)/(2*hip*c));
+
+    beta = atan2(newPos.z, newPos.x-base);
+
+    rho = alpha - beta;
+
+    servoAngle = -rho;
+  }
+
+  void draw() {
+
+    pushMatrix();
+    translate(0,0,robotH);
+    rotateZ(armAngle);
+    translate(base,0,0);
+    if(id==0)stroke(255,0,0);
+    if(id==1)stroke(0,255,0);
+    if(id==2)stroke(0,0,255);
+    line(-base/2,0,0,3/2*base,0,0);
+    popMatrix();
+
+    // Unrotated Vectors of articulations
+    stroke(200,200,255);
+    kneeVec = unRotate(new PVector(hip,0f,0f),0f,0f,robotH,0f,servoAngle,armAngle);
+    kneeVec.x += base*cos(armAngle);
+    kneeVec.y += base*sin(armAngle);
+
+    PVector kneeVec1 = new PVector(kneeVec.x+5*sin(armAngle),kneeVec.y-5*cos(armAngle),kneeVec.z);
+    PVector kneeVec2 = new PVector(kneeVec.x-5*sin(armAngle),kneeVec.y+5*cos(armAngle),kneeVec.z);
+
+    ankleVec = new PVector(targetPos.x+(effector*cos(armAngle)),targetPos.y-5+
+      (effector*sin(armAngle)),targetPos.z);
+      
+    PVector ankleVec1 = new PVector(ankleVec.x+5*sin(armAngle),ankleVec.y-5*cos(armAngle),ankleVec.z);
+    PVector ankleVec2 = new PVector(ankleVec.x-5*sin(armAngle),ankleVec.y+5*cos(armAngle),ankleVec.z);
+
+    hipVec = unRotate(new PVector(base,0,0),0f,0f,robotH,0f,0f,armAngle);
+    
+    // Draw deltaBot elements
+    line(kneeVec1.x,kneeVec1.y,kneeVec1.z,ankleVec1.x,ankleVec1.y,ankleVec1.z);
+    line(kneeVec2.x,kneeVec2.y,kneeVec2.z,ankleVec2.x,ankleVec2.y,ankleVec2.z);
+    stroke(200,180,180);
+    fill(50);
+    beginShape();
+    vertex(hipVec.x,hipVec.y,hipVec.z+5);
+    vertex(hipVec.x,hipVec.y,hipVec.z-5);
+    vertex(kneeVec.x,kneeVec.y,kneeVec.z-5);
+    vertex(kneeVec.x,kneeVec.y,kneeVec.z+5);
+    endShape(CLOSE);    
+
+    //println(dist(targetPos.x+(effector*cos(armAngle)),targetPos.y+
+    //  (effector*sin(armAngle)),targetPos.z,unrot.x,unrot.y,unrot.z));
+  }
+}
