@@ -1,0 +1,57 @@
+
+void oscEvent(OscMessage theOscMessage) {
+  boolean received = false;
+  /* check if theOscMessage has the address pattern we are looking for. */
+  if(theOscMessage.checkAddrPattern("/posVec")==true) { 
+    /* check if the typetag is the right one. */
+    if(theOscMessage.checkTypetag("fffff")) {
+      /* parse theOscMessage and extract the values from the osc message arguments. */
+      kVec.x = theOscMessage.get(0).floatValue();
+      kVec.y = theOscMessage.get(1).floatValue();
+      kVec.z = theOscMessage.get(2).floatValue();
+      kGripOpen = theOscMessage.get(3).floatValue();
+      kGripRot = theOscMessage.get(4).floatValue();
+      if(kGripOpen>550) {
+        follow=false;
+        curves=true;
+        driveMode=2;
+      }
+      else if(kGripOpen>200) {
+        follow=true;
+        curves=false;
+        driveMode=1;
+      }
+      else {
+        follow=false;
+        curves=false;
+        driveMode=1;
+      }
+
+      kGripOpen = constrain(kGripOpen,50,100);
+      kGripRot = constrain(kGripRot,35,180);
+      received = true;
+      return;
+    }
+    println("### received an osc message. with address pattern "+
+      theOscMessage.addrPattern()+" typetag "+ theOscMessage.typetag());
+  }
+  if (theOscMessage.checkAddrPattern("/posBox")==true) { 
+    /* check if the typetag is the right one. */
+    println(kCubes);
+    if(theOscMessage.checkTypetag("ffffffffffffffffffff")) {
+      /* parse theOscMessage and extract the values from the osc message arguments. */
+
+      for(int i=0;i<kCubes.length;i++) {
+        kCubes[i] = theOscMessage.get(i).floatValue();
+      }
+
+      received = true;
+    }
+    println("### received an osc message. with address pattern "+
+      theOscMessage.addrPattern()+" typetag "+ theOscMessage.typetag());
+  }
+
+  if(received = true) return;
+
+  println("Something aint right");
+}
