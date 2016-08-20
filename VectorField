@@ -1,0 +1,194 @@
+class VectorField {
+
+  String[] idealVecs = new String[100];
+  String[] correctedVecs = new String[100];
+  String idealVecFile = "idealVecs.txt"; 
+  String correctedVecFile = "correctedVecs.txt"; 
+
+  Vector field = new Vector();
+  Vector control = new Vector();
+  int n = 10;
+
+  VectorField() {
+    for(int i = 0; i < n; i++) {
+      for(int j = 0; j < n; j++) {
+        for(int k = 0; k < n; k++) {
+          float x = map(i, 0, n, xMin, xMax);
+          float y = map(j, 0, n, yMin, yMax);
+          float z = map(k, 0, n, zMin, zMax);
+          FieldLine cur = new FieldLine(x, y, z);
+          cur.xm = 0;
+          cur.ym = 0;
+          cur.zm = 0;
+          field.add(cur);
+        }
+      }
+    }
+  }
+
+  void draw() {
+    FieldLine cur;
+    for(int i = 0; i < field.size(); i++) {
+      cur = (FieldLine) (field.get(i));
+      cur.update(control);
+    }
+
+    fill(255);
+    stroke(255, 80);
+    for(int i = 0; i < field.size(); i++) {
+      cur = (FieldLine) (field.get(i));
+      cur.draw();
+    }
+
+    fill(255, 0, 0);
+    stroke(255, 0, 0);
+    for(int i = 0; i < control.size(); i++) {
+      cur = (FieldLine) (control.get(i));
+      cur.draw();
+    }
+  }
+
+  void correct() {
+    control.add(new FieldLine(dRobot.posVec.x, dRobot.posVec.y, dRobot.posVec.z));
+    FieldLine cur = (FieldLine) control.lastElement();
+
+    float minDist = 5000;
+    int index=0; 
+
+    for(int i=0;i<cubes.numCubes;i++) {
+      PVector correctPos = new PVector(cubes.cubeSet[i].cubePos.x,cubes.cubeSet[i].cubePos.y,cubes.cubeSet[i].cubePos.z+dRobot.gripSize);
+
+      if(dRobot.posVec.dist(correctPos)<minDist) {
+        minDist = dRobot.posVec.dist(correctPos);
+        index = i;
+      } 
+    }
+
+    cur.xm = cubes.cubeSet[index].cubePos.x - cur.x;
+    cur.ym = cubes.cubeSet[index].cubePos.y - cur.y;
+    cur.zm = cubes.cubeSet[index].cubePos.z+dRobot.gripSize - cur.z;
+  }
+
+  void saveField() {
+
+    FieldLine cur;
+    for(int i=0;i<control.size();i++) {
+      cur = (FieldLine) (control.get(i));
+      idealVecs[i] = String.valueOf(cur.x) + "," + String.valueOf(cur.y) + "," + String.valueOf(cur.z);
+      correctedVecs[i] = String.valueOf(cur.xm) + "," + String.valueOf(cur.ym) + "," + String.valueOf(cur.zm);
+      
+    }
+    saveStrings(dataPath(idealVecFile), idealVecs);
+    saveStrings(dataPath(correctedVecFile), correctedVecs);
+    
+  }
+
+  void retrieveField() {
+  
+    int numVecs=0;
+    PVector[] idVec = new PVector[100];
+    PVector[] corrVec = new PVector[100];
+    
+    File f = new File(dataPath(idealVecFile)); 
+    File f2 = new File(dataPath(correctedVecFile));
+
+    if (f.exists()) 
+    { 
+      String lines[] = loadStrings(dataPath(idealVecFile));
+      for(int i=0;i<lines.length;i++) {
+        if(!lines[i].equals("null")) {      
+          idealVecs[i]= lines[i];
+          String [] bits = idealVecs[i].split(",");
+          idVec[i] = new PVector(float(bits[0]),float(bits[1]),float(bits[2]));
+        }
+      }
+    }
+
+    if (f2.exists()) 
+    {  
+      String lines[] = loadStrings(dataPath(correctedVecFile));
+      for(int i=0;i<lines.length;i++) {
+        if(!lines[i].equals("null")) {      
+          correctedVecs[i]= lines[i];
+          String [] bits = correctedVecs[i].split(",");
+          corrVec[i] = new PVector(float(bits[0]),float(bits[1]),float(bits[2]));
+          numVecs++;
+        }
+      }
+    }
+
+    for(int i=0;i<numVecs;i++) {
+      
+      control.add(new FieldLine(idVec[i].x, idVec[i].y, idVec[i].z));
+      FieldLine cur = (FieldLine) control.lastElement();
+
+      cur.xm = corrVec[i].x;
+      cur.ym = corrVec[i].y;
+      cur.zm = corrVec[i].z;
+    }
+  }
+
+  void keyPressed() {
+    if(key == 'h')vecField.correct();
+    if(key == 's')vecField.saveField();
+    if(key == 'r')vecField.retrieveField();
+  }
+
+  void mousePressed() {
+  }
+
+  void mouseDragged() {
+  }
+}
+
+
+class FieldLine {
+  float x, y, z, xm, ym, zm;
+
+  FieldLine(float x, float y, float z) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+  }
+
+  FieldLine(float x, float y, float z, float xm, float ym, float zm) {
+    this(x, y, z);
+    this.xm = xm;
+    this.ym = ym;
+    this.zm = zm;
+  }
+
+  float distance(FieldLine fieldLine) {
+    return dist(x,y,z,fieldLine.x,fieldLine.y,fieldLine.z);
+  }
+
+  void update(Vector control) {
+    if(control.size() > 0) {
+      float[] weights = new float[control.size()];
+      float sum = 0;
+      for(int i = 0; i < control.size(); i++) {
+        FieldLine cur = ((FieldLine) control.get(i));
+        weights[i] = distance(cur);
+        weights[i] = 1 / weights[i]; // inverse
+        weights[i] *= weights[i]; // square
+        sum += weights[i];
+      }
+      xm = 0;
+      ym = 0;
+      zm = 0;
+      for(int i = 0; i < weights.length; i++) {
+        weights[i] /= sum;
+        FieldLine cur = (FieldLine) control.get(i);
+        xm += cur.xm * weights[i];
+        ym += cur.ym * weights[i];
+        zm += cur.zm * weights[i];
+      }
+    }
+  }
+  void draw() {
+
+    fill(200);
+    line(x, y, z, x + xm, y + ym, z + zm);
+    //ellipse(x,y,4,4);
+  }
+}
