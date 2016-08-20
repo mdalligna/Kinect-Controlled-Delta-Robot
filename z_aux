@@ -1,0 +1,92 @@
+
+PVector unRotate(PVector vecIn, float posX, float posY, float posZ,float rotX, float rotY, float rotZ) {
+
+  //  This gives the world coordinates of a transformed vector. 
+  //  The transformations need to be applied in INVERSE ORDER!!  
+
+  PVector vecX = new PVector();
+  PVector vecY = new PVector();
+  PVector vecZ = new PVector();
+
+  vecX.x = vecIn.x;
+  vecX.y = cos(rotX)*vecIn.y - sin(rotX)*vecIn.z;
+  vecX.z = sin(rotX)*vecIn.y + cos(rotX)*vecIn.z;
+
+  vecY.y = vecX.y;
+  vecY.z = cos(rotY)*vecX.z - sin(rotY)*vecX.x;
+  vecY.x = sin(rotY)*vecX.z + cos(rotY)*vecX.x;
+
+  vecZ.z = vecY.z;
+  vecZ.x = cos(rotZ)*vecY.x - sin(rotZ)*vecY.y;
+  vecZ.y = sin(rotZ)*vecY.x + cos(rotZ)*vecY.y;
+
+  vecZ.add(posX,posY,posZ);
+
+  return vecZ;
+}
+
+PVector rotateVec(PVector vecIn,float rotX, float rotY, float rotZ) {
+
+  //  This gives the world coordinates of a transformed vector. 
+  //  The transformations need to be applied in INVERSE ORDER!!  
+
+  PVector vecX = new PVector();
+  PVector vecY = new PVector();
+  PVector vecZ = new PVector();
+
+  vecX.x = vecIn.x;
+  vecX.y = cos(rotX)*vecIn.y - sin(rotX)*vecIn.z;
+  vecX.z = sin(rotX)*vecIn.y + cos(rotX)*vecIn.z;
+
+  vecY.y = vecX.y;
+  vecY.z = cos(rotY)*vecX.z - sin(rotY)*vecX.x;
+  vecY.x = sin(rotY)*vecX.z + cos(rotY)*vecX.x;
+
+  vecZ.z = vecY.z;
+  vecZ.x = cos(rotZ)*vecY.x - sin(rotZ)*vecY.y;
+  vecZ.y = sin(rotZ)*vecY.x + cos(rotZ)*vecY.y;
+
+  return vecZ;
+}
+
+float[] interpolate(float[] posArrayIn, float tgtx, float tgty, float tgtz, float accMult, float velMult) {
+
+  float posx,posy,posz,prevx,prevy,prevz,velx,vely,velz,accx,accy,accz;
+  float[] posArray = new float[6];
+
+  posx = posArrayIn[0];
+  posy = posArrayIn[1];
+  posz = posArrayIn[2];
+  prevx = posArrayIn[3];
+  prevy = posArrayIn[4];
+  prevz = posArrayIn[5];
+
+  velx=(posx-prevx);
+  vely=(posy-prevy);
+  velz=(posz-prevz);
+
+  accx=tgtx-posx;
+  accy=tgty-posy;
+  accz=tgtz-posz;
+
+  velx+=(accx*accMult);
+  vely+=(accy*accMult);
+  velz+=(accz*accMult);
+
+  prevx=posx;
+  prevy=posy;
+  prevz=posz;
+
+  posx = posx+(velx*velMult);
+  posy = posy+(vely*velMult);
+  posz = posz+(velz*velMult);
+
+  posArray[0] = posx;
+  posArray[1] = posy;
+  posArray[2] = posz;
+  posArray[3] = prevx;
+  posArray[4] = prevy;
+  posArray[5] = prevz;
+
+  return posArray;
+}
