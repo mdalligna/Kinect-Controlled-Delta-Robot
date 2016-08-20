@@ -1,0 +1,251 @@
+
+import processing.opengl.*;
+import oscP5.*;
+import netP5.*;
+import processing.serial.*;
+import ddf.minim.*;
+
+Serial port;
+
+float[] serialMsg = new float[5];
+
+OscP5 oscP5;
+OscP5 oscP5mc;
+NetAddress myRemoteLocation;
+
+Minim minim;
+AudioInput audioInput;
+
+Orbit myOrbit = new Orbit();
+
+DeltaRobot dRobot;
+Cubes cubes;
+float[] kCubes;
+
+History hist;
+
+float gripOpen = 70;
+float gripRot = 25;
+float kGripOpen = 70;
+float kGripRot = 25;
+
+// Maximum dimensions of the effector space
+float fieldX = 500;
+float fieldY = 500;
+float robotHeight = 600;
+
+float xMax = fieldX*0.5;
+float xMin = -fieldX*0.5;
+float yMax = fieldY*0.5;
+float yMin = -fieldY*0.5;
+float zMax = robotHeight-200;
+float zMin = 130;
+
+// Maximum and minimum input values (from Kinect)
+float xInMin = -60;
+float xInMax = 60;
+float yInMin = 40;
+float yInMax = 100;
+float zInMin = -20;
+float zInMax = 50;
+
+PVector mousePos = new PVector(0,0,0);
+PVector targetPos;
+int targetCube = 0;
+float targetRot = 0;
+
+// Data coming from Kinect through OSC!!
+PVector kVec= new PVector();
+int driveMode = 2;
+
+boolean follow = false;
+boolean curves = false;
+boolean updateCubes = true;
+
+VectorField vecField;
+
+void setup() {
+
+  size(1100,700,OPENGL);
+  myOrbit.mouseWheel();
+
+  minim = new Minim(this);
+  minim.debugOn();
+  audioInput = minim.getLineIn(minim.MONO,16);
+
+  /* start oscP5, listening for incoming messages at port 12000 */
+  oscP5 = new OscP5(this,12000);      //listenting port
+  oscP5mc = new OscP5(this,"239.0.0.1",7777);
+  //myRemoteLocation = new NetAddress("127.0.0.1",36000);      //broadcast port
+
+  dRobot = new DeltaRobot(235,430,90,80,robotHeight);
+  kCubes = new float[20];
+  cubes = new Cubes(8,dRobot);
+  hist = new History(20,5);
+
+  vecField = new VectorField();
+
+  //port = new Serial(this, Serial.list()[0], 9600);
+}
+
+void draw() {
+
+  background(0);
+
+  // Maps Mouse position to a range compatible with the Kinect range
+  mousePos.x = map(mouseX,0,width,xMin,xMax);
+  mousePos.y = map(mouseY,0,height,yMin,yMax);
+  mousePos.z = zMin+40;
+
+  switch(driveMode) {
+  case 0: 
+    dRobot.moveTo(mousePos); // Mouse Control
+    break;
+  case 1: 
+    zMin=120;
+    
+    for(int i =0;i<cubes.cubeSet.length;i++){
+     cubes.cubeSet[i].cubeTaken=false; 
+    }
+    
+    if(curves) {
+      curves();
+    }
+    else if(follow) {
+      follow();
+    }
+    else {
+
+      dRobot.moveTo(dRobot.mapKinect(kVec)); // Kinect Control
+      gripOpen = kGripOpen;
+      gripRot = kGripRot;
+    }
+
+    break;
+  case 2:
+    zMin = 180;
+    if(cubes.cubeSet[targetCube].cubeTaken) {
+      dRobot.release(cubes.cubeSet[targetCube], targetPos, targetRot);
+    }
+    else {
+      dRobot.grab(cubes.cubeSet[targetCube]); // Mouse Control
+      targetPos= new PVector(random(xMin,xMax),random(yMin,yMax),random(zMin,zMax));
+      targetRot= random(-PI/2,PI/2);
+    }
+    break;
+  }
+
+
+  //if(dRobot.posVec.y>100 && dRobot.posVec.z>(zMax-zMin)/2 && frameCount%5==0)
+  //cubes.updatePos();
+
+
+  myOrbit.pushOrbit(); //--------------- After this, you can rotate and pan
+
+  vecField.draw();
+
+  drawEnvironment();
+
+  cubes.draw();
+
+  dRobot.draw();
+
+  //hist.draw();
+
+  myOrbit.popOrbit();//--------------- After this, Image stays steady
+
+  displayText();
+
+  //sendSerialData();
+}
+
+void keyPressed()
+{
+  myOrbit.keyPressed();
+  if(key == 'm')driveMode = 0;
+  if(key == 'k')driveMode = 1;
+  if(key == 'c')driveMode = 2;
+  if(key == 'u')cubes.updatePos();
+  vecField.keyPressed();
+}
+
+void mousePressed ()
+{  
+  myOrbit.mousePressed();
+  vecField.mousePressed();
+}
+
+void mouseDragged()
+{
+  myOrbit.mouseDragged();
+}
+
+void drawEnvironment() {
+
+  // Draw Coordinate System
+  stroke(255,0,0);
+  line(0,0,0,100,0,0);
+  stroke(0,255,0);
+  line(0,0,0,0,100,0);
+  stroke(0,0,255);
+  line(0,0,0,0,0,100);
+
+  // Draw the environment
+  fill(250);
+  noStroke();
+  pushMatrix();
+  translate(0,0,-10/2);
+  box(fieldX,fieldY,10);
+  popMatrix();
+}
+
+void sendSerialData() {
+  // Serial Communcation
+  FieldLine cur = new FieldLine(dRobot.posVec.x,dRobot.posVec.y,dRobot.posVec.z);
+
+  if(driveMode==2) {
+
+    cur.update(vecField.control);
+    PVector transVec = new PVector(cur.x+cur.x,cur.y+cur.ym,cur.z+cur.zm);
+
+    dRobot.moveTo(transVec);
+  }
+  else {
+    dRobot.moveTo(dRobot.posVec);
+  }
+
+  port.write('X');
+
+  for(int i=0;i<dRobot.numArms;i++) {
+
+    float serialAngle = map(dRobot.servoAngle[i],radians(-90),radians(90),0,255);
+    int serialAngle1 = floor(serialAngle);
+    int serialAngle2 = int(serialAngle*1000)-serialAngle1*1000;
+
+    serialMsg[i] = serialAngle;
+    port.write(serialAngle1);
+    port.write(serialAngle1);
+  }
+
+  port.write(int(gripRot));
+  serialMsg[3] = int(gripRot);
+  port.write(int(gripOpen));
+  serialMsg[4] = int(gripOpen);
+
+  if(driveMode==2) {
+    PVector oldVec = new PVector(cur.x,cur.y,cur.z);
+    dRobot.moveTo(oldVec);
+  }
+}
+
+void displayText() {
+
+  fill(255);
+
+  text("Position X: " + dRobot.posVec.x + "\nPosition Y: " + dRobot.posVec.y
+    + "\nPosition Z: " + dRobot.posVec.z,10,20);
+
+  text("Servo1: " + serialMsg[0] + "\nServo2: " + serialMsg[1] 
+    + "\nServo3: " + serialMsg[2] + "\nGripRot: " + serialMsg[3] 
+    + "\nGripOpen: " + serialMsg[4],10,80);
+}
