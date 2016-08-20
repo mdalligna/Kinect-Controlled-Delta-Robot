@@ -1,0 +1,168 @@
+
+class DeltaRobot {
+
+  PVector posVec = new PVector();
+  PVector gripPos;
+  float robotHeight;
+
+  int numArms = 3;
+
+  DeltaArm[] arm = new DeltaArm[numArms];
+  float[] servoAngle = new float[numArms];
+
+  float servoMin, servoMax;
+  float hip, ankle, base, effector;
+
+  float gripSize = 180;
+  float gripState;
+
+  public DeltaRobot(float hipLength, float ankleLength, float baseSize, float effectorSize, float robotHeight) {
+    hip = hipLength;
+    ankle = ankleLength;
+    base = baseSize;
+    effector = effectorSize;
+    this.robotHeight = robotHeight;
+
+    for (int i = 0; i < numArms; i++) {
+      arm[i] = new DeltaArm(i,i*(2*PI/numArms)-PI/6, hip, ankle, base, effector, robotHeight);
+    }
+  }
+
+  PVector mapKinect(PVector newPos) {
+
+    PVector retVec = new PVector();
+    retVec.x = map(newPos.x,xInMin,xInMax,-fieldX*0.5, fieldX*0.5);
+    retVec.y = map(newPos.y,yInMin,yInMax,fieldY*0.5, -fieldY*0.5);
+    retVec.z = map(newPos.z,zInMin,zInMax,zMin, zMax);
+    return retVec;
+  }
+
+  void moveTo(PVector newPos) {
+
+    posVec.set(newPos);
+
+    if(posVec.x>xMax)posVec.x=xMax;
+    if(posVec.x<xMin)posVec.x=xMin;
+    if(posVec.y>yMax)posVec.y=yMax;
+    if(posVec.y<yMin)posVec.y=yMin;
+    if(posVec.z>zMax)posVec.z=zMax;
+    if(posVec.z<zMin)posVec.z=zMin;
+
+    hist.storeData(posVec,gripRot,gripOpen);
+
+    for (int i = 0; i < numArms; i++) {
+      arm[i].moveTo(posVec);
+      servoAngle[i] = arm[i].servoAngle;
+    }
+    gripPos = new PVector(posVec.x,posVec.y,posVec.z-gripSize);
+  }
+
+  void grab(Cube cube) {
+
+    PVector newPos = new PVector();
+    newPos.x = lerp(posVec.x, cube.cubePos.x, 0.2f);
+    newPos.y = lerp(posVec.y, cube.cubePos.y, 0.2f);
+    newPos.z = lerp(posVec.z, cube.cubePos.z+gripSize, 0.2f);
+
+    moveTo(newPos);
+
+    if(gripPos.dist(cube.cubePos)<10) {
+      gripOpen=lerp(gripOpen,60,0.2);
+    }
+    else {
+      gripOpen=lerp(gripOpen,110,0.3);
+      gripRot=lerp(gripRot,map(cube.cubeRot,-PI/2,PI/2,35,180),0.3);
+    }
+    if(gripOpen<61)cube.grab();
+  }
+
+  void release(Cube cube, PVector targetPos, float tRot) {
+
+    PVector newPos = new PVector();
+    newPos.x = lerp(posVec.x, targetPos.x, 0.2f);
+    newPos.y = lerp(posVec.y, targetPos.y, 0.2f);
+    newPos.z = lerp(posVec.z, targetPos.z, 0.2f);
+
+    moveTo(newPos);
+    gripRot=lerp(gripRot,map(tRot,-PI/2,PI/2,35,180),0.2);
+
+    if(newPos.dist(targetPos)<10) {
+      gripOpen=lerp(gripOpen,110,0.2);
+    }
+    if(gripOpen>100) {
+      cube.release();
+      targetCube = int(random(cubes.numCubes));
+    }
+  }
+
+  void draw() {
+
+    stroke(255);
+
+    for (int i = 0; i < numArms; i++) {
+      arm[i].draw();
+    }
+
+    stroke(200,200,255);
+    fill(200,50);
+    for(int j=-1;j<2;j+=2) {
+      beginShape();
+
+      for (int i = 0; i < numArms; i++) {
+
+        vertex(arm[i].ankleVec.x,arm[i].ankleVec.y,arm[i].ankleVec.z+2*j);
+      }
+      endShape(CLOSE);
+    }
+
+    dRobot.drawGrip();
+  }
+
+  void drawGrip() {
+
+    stroke(80);
+    noFill();
+
+    // Draw Target
+    pushMatrix();
+    translate(posVec.x,posVec.y,0);
+    line(-10,0,10,0);
+    line(0,-10,0,10);
+    popMatrix();
+
+    // Draw Grip
+    stroke(200,200,255);
+    fill(200,50);
+
+    pushMatrix();
+    translate(posVec.x,posVec.y,posVec.z-15);
+    ellipse(0,0,effector/1.2,effector/1.2);
+    rotate(map(gripRot,35,180,-PI/2,PI/2));
+
+    for(int j=-1;j<2;j+=2) {
+      translate(0,2*j,0);
+      beginShape();
+      vertex(-30,0,0);
+      vertex(30,0,0);
+      vertex(30,0,-35);
+      vertex(15,0,-50);
+      vertex(-15,0,-50);
+      vertex(-30,0,-35);
+      endShape(CLOSE);
+
+      for(int i=-1;i<2;i+=2) {
+        pushMatrix();
+        translate(i*20,0,-30);
+        rotateX(PI/2);
+        ellipse(0,0,10,10);
+        rotate(i*map(gripOpen,50,150,0,PI/2.2));
+        rect(-5,-60,10,60);
+        translate(0,-50,0);
+        rotate(-i*map(gripOpen,50,150,0,PI/2.2));
+        rect(-5,-60,10,60);
+        popMatrix();
+      }
+    }
+    popMatrix();
+  }
+}
