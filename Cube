@@ -1,0 +1,57 @@
+
+class Cube {
+
+  int id;
+  PVector cubePos;
+  float cubeSize;
+  float cubeRot;
+  color cubeColor;
+  boolean cubeTaken = false;
+
+  DeltaRobot dRobot;
+
+  public Cube(int id, DeltaRobot dRobot) {
+    this.dRobot = dRobot;
+    this.cubePos = new PVector(random(xMin+20,xMax-20),random(yMin+20,yMax-20),0); 
+    this.id = id;
+    this.cubeSize = 40;
+    this.cubeColor = color(int(random(0,255)),int(random(0,255)),int(random(0,255)));
+    this.cubeRot = random(-PI/2,PI/2);
+  }
+
+  void release() {
+    cubeTaken = false;
+  }
+
+  void grab() {
+    cubeTaken = true;
+    hist.recordHit();
+  }
+
+  void draw() {
+
+    stroke(200);
+    fill(cubeColor,90);
+
+    if(cubeTaken) {
+      //fill(255,0,0);
+      cubePos.x = (dRobot.gripPos.x);
+      cubePos.y = (dRobot.gripPos.y);
+      cubePos.z = (dRobot.gripPos.z);
+      cubeRot = map(gripRot,35,180,-PI/2,PI/2);
+
+    }
+
+    else {
+      cubePos.z = cubePos.z-5000/cubePos.z;
+      if(cubePos.z<0)cubePos.z=0;
+      
+    }
+    
+    pushMatrix();
+    translate(cubePos.x,cubePos.y,cubePos.z+cubeSize/2+1);
+    rotate(cubeRot);
+    box(cubeSize);
+    popMatrix();
+  }
+}
