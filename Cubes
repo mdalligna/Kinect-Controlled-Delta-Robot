@@ -1,0 +1,38 @@
+
+class Cubes {
+
+  int numCubes;
+  Cube[] cubeSet;
+
+  public Cubes(int numCubes, DeltaRobot dRobot) {
+
+    this.numCubes = numCubes;
+    this.cubeSet = new Cube[numCubes];
+
+    for(int i=0;i<numCubes;i++) {
+
+      cubeSet[i] = new Cube(i, dRobot);
+    }
+  }
+  
+  public void updatePos(){
+    
+    for(int i=0;i<numCubes;i++){
+      cubeSet[i].cubePos.x=kCubes[i*5]*1-xMax-30;
+      cubeSet[i].cubePos.y=kCubes[1+i*5]*-1+yMax-100;
+    }
+    
+  }
+
+  void draw() {
+
+    for(int i=0;i<numCubes;i++) {
+      cubeSet[i].draw();
+      
+    }
+  }
+
+  PVector getCubePos(int index) {
+    return cubeSet[index].cubePos;
+  }
+}
