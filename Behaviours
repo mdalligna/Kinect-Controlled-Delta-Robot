@@ -1,0 +1,180 @@
+PVector gp = new PVector(0.0,0.0,0.0);
+PVector music = new PVector(0.0,0.0,0.0);
+
+int timeLapse=20;
+float z, targetZ;
+float easing = 0.01;
+float gripCount;
+float gripLimit=int(random(50,300));
+
+//Curve//
+float easing2 = 0.02;
+float Cx,Cy,Cz;
+float sp =0.005;//speed
+float u=0.0;
+int maxDim = 500;
+PVector addpos= new PVector (random(xMin+20,xMax-20),random(yMin+20,yMax-20),random(50,100));
+PVector crve = new PVector();
+PVector CentrePos = new PVector();
+
+PVector [] cPts = {
+  new PVector(0.0,0.0,0.0), 
+  new PVector(random(-maxDim,maxDim),random(-maxDim,maxDim),random(maxDim)),
+  new PVector(random(maxDim,-maxDim),random(-maxDim,maxDim),random(maxDim)),
+  new PVector(random(-maxDim,maxDim),random(-maxDim,maxDim),random(maxDim)),
+  new PVector(random(-maxDim,maxDim),random(-maxDim,maxDim),random(maxDim)),
+  new PVector(0.0,0.0,0.0),
+};
+
+int N = cPts.length-1;
+float [] knots = {
+  0.0, 0.001, 0.0002,0.003, 0.004,0.005,0.995,0.996, 0.997, 0.998,0.999, 1.0
+};
+int D = knots.length-cPts.length-1; // degree
+
+
+void follow() {
+  
+  //sound react
+
+  gp.z= audioInput.mix.level()*20000;
+  if(gp.z<0)gp.z=(abs(gp.z));
+  //soft data
+  if(frameCount%timeLapse==0) {
+    music.z=gp.z;
+  }
+  //easing
+  targetZ = gp.z;
+  float dz = targetZ - z;
+  if(abs(dz) > 1) {
+    z += dz * easing;
+  }
+  if(z>zMax)z=zMax;
+  if(z<zMin)z=zMin;
+
+  //position of arm
+  dRobot.moveTo(new PVector(lerp(dRobot.posVec.x,0,0.2),lerp(dRobot.posVec.y,0,0.2),z));
+  // dRobot.moveTo(new PVector(lerp(dRobot.posVec.x,0,0.2),lerp(dRobot.posVec.y,0,0.2),lerp(dRobot.posVec.z,(zMax-zMin)/2,0.2)));
+
+  //rotation of the gripper
+  gripRot = map(kVec.x,180,-180,35,180);//midpoint 107.5. max left 35 right 180.
+  //opening periodically
+  gripCount++;
+
+  if (gripCount>gripLimit&&gripCount<gripLimit+50)gripOpen+=1;
+  if (gripCount>gripLimit+50&&gripCount<gripLimit+110)gripOpen-=1;
+  if (gripCount>gripLimit+110)
+  {
+    gripCount =0;
+    gripOpen=70;
+    gripLimit=int( random(50,300));
+  }
+  constrain(gripOpen,50,150);
+}
+
+void curves() {
+  
+  u +=sp;
+  
+     if(u>1) {
+  if(random(10)<5) {//change control points location
+        controlPoints();
+      }
+      select_where();//select next target
+      u=0;//restart
+     }
+     
+  curvePos(u);
+  dRobot.moveTo(new PVector(Cx,Cy,Cz));
+  
+}
+
+void select_where()
+{
+  CentrePos= new PVector(random(xMin+20,xMax-20),random(yMin+20,yMax-20),random(50,100));
+ addpos= new PVector (0,0,0);
+ addpos.add(CentrePos);
+}
+
+void easing(PVector pos){
+   
+  float dx = pos.x - Cx;
+  if(abs(dx) > 1) Cx += dx * easing2;
+  float dy = pos.y - Cy;
+  if(abs(dy) > 1) Cy += dy * easing2;
+  float dz = pos.z - Cz;
+  if(abs(dz) > 1) Cz += dz * easing2;
+  
+  
+  if(Cx>xMax)Cx=xMax;
+  if(Cx<xMin)Cx=xMin;
+  if(Cy>yMax)Cy=yMax;
+  if(Cy<yMin)Cy=yMin;
+  if(Cz>zMax)Cz=zMax;
+  if(Cz<zMin)Cz=zMin;
+  
+   
+}
+
+
+float fader( float u, int k) { 
+
+  return basisn(u,k, D);
+}
+
+float basisn (float u, int k, int d) {
+
+  if (d==0) {
+    return basis0(u,k);
+  }
+  else {
+
+    float b1= basisn (u,k,d-1)*(u-knots[k])/(knots[k+d]-knots[k]);
+    float b2= basisn (u,k+1,d-1)*(knots[k+d+1]-u)/(knots[k+d+1]-knots[k+1]);
+
+    return b1+b2;
+  }
+}
+
+float basis0 (float u, int k) {
+  if(u>=knots[k] && u < knots [k+1])
+  {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+void faderPos(float u) {
+  for (int k=0; k<cPts.length;k++) {
+    float faderLvl = fader(u,k); 
+    point(u*width, height-(faderLvl*height));//specifying timne
+  }
+}
+
+void curvePos(float u) {
+  PVector pt = new PVector();
+  for (int k=0; k<cPts.length; k++) {
+    PVector ptk = new PVector(cPts[k].x, cPts[k].y, cPts[k].z);
+    ptk.mult(fader(u,k));//multiply each control point for the fader
+    pt.add(ptk);
+  }
+ 
+  
+
+ crve.x =( pt.x+addpos.x);
+ crve.y =( pt.y+addpos.y);
+ crve.z = (pt.z+addpos.z);
+easing(crve);
+
+}
+
+void controlPoints() {
+  cPts[0] = new PVector(0.0,0.0,0.0);
+  cPts[1] = new PVector(random(-maxDim,maxDim),random(-maxDim,maxDim),random(maxDim));
+  cPts[2] = new PVector(random(maxDim,-maxDim),random(-maxDim,maxDim),random(maxDim));
+  cPts[3] = new PVector(random(-maxDim,maxDim),random(-maxDim,maxDim),random(maxDim));
+  cPts[4] = new PVector(random(-maxDim,maxDim),random(-maxDim,maxDim),random(maxDim));
+  cPts[5] = new PVector(0.0,0.0,0.0);
+}
