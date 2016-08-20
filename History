@@ -1,0 +1,101 @@
+
+class History {
+
+  int numPos;
+  int timeLapse;
+  int numHits = 100;
+  PVector[] pastPos;
+  float[][] pastGrip;
+  PVector[][] hitPos;
+
+  History(int numPos, int timeLapse) {
+    this.numPos = numPos;
+    this.timeLapse=timeLapse;
+    pastPos = new PVector[numPos];
+    pastGrip = new float[numPos][2];
+    hitPos = new PVector [numHits][numPos];
+    for(int i=0;i<numPos;i++) {
+      pastPos[i] = new PVector();
+    }
+
+    for(int i=0;i<numHits;i++) {
+      for(int j=0;j<numPos;j++) {
+        hitPos[i][j] = new PVector();
+      }
+    }
+  } 
+
+  void storeData(PVector currentPos, float cGripRot,float cGrip) {
+
+    if(frameCount%timeLapse==0) {
+
+      for(int i=0;i<numPos-1;i++) {
+        pastPos[i].set(pastPos[i+1]);
+        pastGrip[i][0]=pastGrip[i+1][0];
+        pastGrip[i][1]=pastGrip[i+1][1];
+      }
+      pastPos[numPos-1].set(currentPos);
+      pastGrip[numPos-1][0]=cGripRot;
+      pastGrip[numPos-1][1]=cGrip;
+    }
+  }
+
+  void recordHit() {
+
+    for(int i=0;i<numHits-1;i++) {
+      for(int j=0;j<numPos;j++) {
+
+        hitPos[i][j].set(hitPos[i+1][j]);
+      }
+    }
+    for(int j=0;j<numPos;j++) {
+      hitPos[numHits-1][j].set(pastPos[j]);
+    }
+  }
+
+  void draw() {
+
+    noStroke();
+    fill(255,0,0,50);
+
+    for(int i=0;i<numPos;i++) {
+
+      pushMatrix();
+      translate(pastPos[i].x,pastPos[i].y,pastPos[i].z);
+      rotate(map(pastGrip[i][0],35,180,-PI/2,PI/2));
+      rotateX(map(pastGrip[i][1],50,150,0,PI/2.2));
+      //box(5,5,5);
+      popMatrix();
+    }
+
+    stroke(200);
+    noFill();
+    beginShape();
+    for(int i=0;i<numPos;i++) {
+      curveVertex(pastPos[i].x,pastPos[i].y,pastPos[i].z);
+    }
+    endShape();
+
+    // Draw Hits
+    stroke(0,100,100);
+    noFill();
+    for(int i=0;i<numHits;i++) {
+      beginShape();
+      for(int j=0;j<numPos;j++) {
+        curveVertex(hitPos[i][j].x,hitPos[i][j].y,hitPos[i][j].z);
+      }
+      endShape();
+    }
+    
+    noStroke();
+    fill(0,255,0,50);
+    for(int i=0;i<numHits;i++) {
+      for(int j=0;j<numPos;j++) {
+        pushMatrix();
+        translate(hitPos[i][j].x,hitPos[i][j].y,hitPos[i][j].z);
+        //box(5,5,5);
+        popMatrix();
+      }
+    }
+  }
+}
